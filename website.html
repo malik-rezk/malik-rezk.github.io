@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Simple Calling Website</title>
+    <style>
+      #localVideo {
+        width: 50%;
+        height: 50%;
+        border: 1px solid gray;
+      }
+      #remoteVideo {
+        width: 50%;
+        height: 50%;
+        border: 1px solid gray;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Simple Calling Website</h1>
+    <video id="localVideo" autoplay></video>
+    <video id="remoteVideo" autoplay></video>
+    <br><br>
+    <button id="startButton">Start Call</button>
+    <button id="hangupButton" disabled>End Call</button>
+
+    <script>
+      // Create variables to store the video containers and buttons
+      const localVideo = document.querySelector('#localVideo');
+      const remoteVideo = document.querySelector('#remoteVideo');
+      const startButton = document.querySelector('#startButton');
+      const hangupButton = document.querySelector('#hangupButton');
+
+      // Create variables to store the WebRTC connection
+      let localStream;
+      let remoteStream;
+      let pc1;
+      let pc2;
+
+      // Function to start the call
+      async function start() {
+        startButton.disabled = true;
+        hangupButton.disabled = false;
+
+        // Get the local video stream
+        try {
+          localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          localVideo.srcObject = localStream;
+        } catch (err) {
+          console.error('Error getting user media', err);
+          return;
+        }
+
+        // Create the WebRTC connection
+        pc1 = new RTCPeerConnection();
+        pc2 = new RTCPeerConnection();
+
+        // Add the local video stream to the connection
+        localStream.getTracks().forEach(track => pc1.addTrack(track, localStream));
+
+        // Handle the remote video stream
+        pc2.ontrack = event => {
+          remoteStream = event.streams[0];
+          remoteVideo.srcObject = remoteStream;
+        };
+
+        // Create an offer to start the call
+        try {
+          const offer = await pc1.createOffer();
+          await pc1.setLocalDescription(offer);
+          await pc2.setRemoteDescription(offer);
+          const answer = await pc2.createAnswer();
+          await pc2.setLocalDescription(answer);
+          await pc1.setRemoteDescription(answer);
+        } catch (err) {
+          console.error('Error creating offer or answer', err);
+        }
+      }
+
+      // Function to end the call
+      function hangup() {
+        pc1.close();
+        pc2.close();
+        localStream.getTracks().forEach(track => track.stop());
+        localVideo.srcObject = null;
+        remoteVideo.srcObject = null;
+        startButton.disabled = false;
+        hangupButton.disabled = true;
+      }
+
+      // Add event listeners to the buttons
+      startButton.addEventListener('click', start);
+      hangupButton.addEventListener('click', hangup);
+    </script>
+  </body>
+</html>
